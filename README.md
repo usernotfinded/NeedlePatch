@@ -536,24 +536,6 @@ NeedlePatch will not try to:
 
 ---
 
-## License
-
-TODO.
-
-Recommended:
-
-```text
-MIT
-```
-
-or:
-
-```text
-Apache-2.0
-```
-
----
-
 ## One-line summary
 
 **NeedlePatch is a tiny CLI that helps AI coding agents make safe one-line and token-level edits without rewriting whole blocks.**
