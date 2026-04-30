@@ -14,7 +14,7 @@ NeedlePatch should stay small, dumb, stateless, and predictable.
 
 ## Current status
 
-NeedlePatch has completed the **Tiny Core MVP** and **Milestone 1** command set.
+NeedlePatch has completed the **Tiny Core MVP**, **Milestone 1** command set, **Milestone 2** public feedback readiness work, and **Milestone 3** release hardening.
 
 The first working version implements only the minimum needed to prove the safety model:
 
@@ -25,6 +25,15 @@ The first working version implements only the minimum needed to prove the safety
 - clear exit codes;
 - pytest coverage;
 - no runtime dependencies.
+- real-world examples;
+- agent instruction files;
+- a first benchmark helper;
+- GitHub issue templates;
+- basic CI.
+- `needle --version`;
+- a changelog;
+- contribution guidance;
+- anti-overclaim benchmark cases.
 
 ---
 
@@ -197,11 +206,12 @@ Example error shape:
 
 ## Verification
 
-Tiny Core MVP verification:
+Current verification:
 
 ```bash
 python3 -m pip install -e '.[dev]'
 python3 -m pytest
+python3 benchmarks/compare_micro_edits.py
 needle --help
 git diff --check
 ```
@@ -303,15 +313,32 @@ Use cases:
 
 ---
 
-## Milestone 2: Agent instruction files
+## Milestone 2: Public feedback readiness (completed)
 
-Add ready-to-copy instruction files for AI coding agents.
-
-Planned files:
+Added ready-to-copy instruction files for AI coding agents:
 
 ```text
 examples/AGENTS.md
 examples/SKILL.md
+```
+
+Added real-world-style examples:
+
+```text
+examples/append_noqa.md
+examples/toggle_boolean.md
+examples/replace_tuple_item.md
+examples/insert_one_line.md
+examples/delete_suffix.md
+```
+
+Added validation and feedback support:
+
+```text
+benchmarks/compare_micro_edits.py
+.github/ISSUE_TEMPLATE/bug_report.yml
+.github/ISSUE_TEMPLATE/real_world_case.yml
+.github/workflows/ci.yml
 ```
 
 Purpose:
@@ -319,6 +346,7 @@ Purpose:
 * teach agents when to use NeedlePatch;
 * prevent misuse for large edits;
 * make the tool usable without model training.
+* collect real-world feedback without overclaiming usefulness.
 
 Policy:
 
@@ -329,45 +357,23 @@ Use normal diffs or apply_patch for larger changes.
 
 ---
 
-## Milestone 3: Real-world examples
-
-Add examples based on real micro-edits.
-
-Planned examples:
+## Milestone 3: Release hardening and anti-overclaim validation (completed)
 
 ```text
-examples/append_noqa.md
-examples/toggle_boolean.md
-examples/replace_tuple_item.md
-examples/insert_one_line.md
-examples/delete_suffix.md
+CHANGELOG.md
+CONTRIBUTING.md
+needle --version
+balanced benchmark cases
+README caution and smoke test sections
 ```
 
-Each example should show:
-
-* original code;
-* desired change;
-* normal diff;
-* NeedlePatch command;
-* result.
-
-Goal:
-
-* prove when NeedlePatch is useful;
-* show when it is not useful;
-* avoid overclaiming.
+The benchmark now includes cases where NeedlePatch is useful, not clearly better, and out of scope.
 
 ---
 
-## Milestone 4: Benchmark script
+## Milestone 4: Real-world validation
 
-Add a simple comparison script.
-
-Possible file:
-
-```text
-benchmarks/compare_micro_edits.py
-```
+Collect real cases from issues and local usage.
 
 Measure:
 
@@ -382,28 +388,6 @@ Measure:
 Important:
 
 NeedlePatch should not claim token savings without measured examples.
-
----
-
-## Milestone 5: GitHub feedback loop
-
-Add issue templates for real-world cases.
-
-Possible files:
-
-```text
-.github/ISSUE_TEMPLATE/bug_report.yml
-.github/ISSUE_TEMPLATE/real_world_case.yml
-```
-
-The `real_world_case` template should ask for:
-
-* original code;
-* desired edit;
-* normal diff;
-* NeedlePatch command;
-* whether the command was useful;
-* whether the command was shorter or clearer than a diff.
 
 ---
 
@@ -570,7 +554,7 @@ The next priority is not more architecture.
 The next priority is:
 
 ```text
-1. Add real-world examples.
+1. Collect real-world cases.
 2. Measure whether the tool is actually useful.
 3. Keep advanced features deferred until usage data supports them.
 ```

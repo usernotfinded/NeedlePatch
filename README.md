@@ -19,6 +19,63 @@ It is a fast path for edits that are too small to justify a full patch.
 
 ---
 
+## Project status
+
+- MVP implemented.
+- Six commands are available: `view`, `replace`, `replace-inside`, `append`, `insert-after`, and `delete`.
+- Real-world validation is needed to learn when NeedlePatch is useful.
+- NeedlePatch is not intended to replace `apply_patch` or normal diffs.
+
+---
+
+## Repository metadata
+
+Suggested repository description:
+
+```text
+Safe shell commands for one-line and token-level edits by AI coding agents.
+```
+
+Suggested tags:
+
+```text
+ai-agents
+cli
+developer-tools
+code-editing
+automation
+python
+```
+
+---
+
+## Examples and feedback
+
+- [Examples](examples/)
+- [Agent instructions](examples/AGENTS.md)
+- [Skill file](examples/SKILL.md)
+- [Benchmark script](benchmarks/compare_micro_edits.py)
+- [Changelog](CHANGELOG.md)
+- [Contributing](CONTRIBUTING.md)
+- [Release checklist](RELEASE_CHECKLIST.md)
+- [Bug report template](.github/ISSUE_TEMPLATE/bug_report.yml)
+- [Real-world case template](.github/ISSUE_TEMPLATE/real_world_case.yml)
+
+---
+
+## Feedback wanted
+
+NeedlePatch is an experiment. Useful feedback includes:
+
+* cases where it is clearer than a diff
+* cases where it is worse than a diff
+* commands that are too verbose
+* ambiguous match failures
+* examples where agents misuse it
+* cases where normal `apply_patch` is better
+
+---
+
 ## Why?
 
 AI coding agents often generate large patches for very small edits.
@@ -91,11 +148,26 @@ For larger edits, use `apply_patch`, a normal diff, or your coding agent’s nat
 
 ---
 
+## When not to use NeedlePatch
+
+Do not use NeedlePatch for:
+
+* refactors
+* multi-line logic changes
+* function rewrites
+* formatting
+* ambiguous targets requiring huge context
+* cases where the NeedlePatch command is longer or less clear than a normal diff
+
+For those cases, use `apply_patch`, a normal diff, or another code-editing tool.
+
+---
+
 # Commands
 
 NeedlePatch provides a small set of shell commands for precise micro-edits.
 
-The goal is not to replace `apply_patch` or normal diffs. The goal is to give AI coding agents safer commands for tiny edits where rewriting a whole line, block, or function would be unnecessary and token-consuming.
+The goal is not to replace `apply_patch` or normal diffs. The goal is to give AI coding agents constrained commands for tiny edits where rewriting a whole line, block, or function would be unnecessary and token-consuming.
 
 ```bash
 needle view             -> inspect exact text
@@ -1012,6 +1084,43 @@ Example error:
   "matches": 3,
   "hint": "Use a more specific exact text or replace-inside with --within."
 }
+```
+
+---
+
+## Manual smoke test
+
+Copy and paste this into a shell after installing NeedlePatch:
+
+```bash
+cat > /tmp/needle_smoke.py <<'EOF'
+import llm
+debug_enabled = True
+for hie_lite_enabled in (False, True):
+    pass
+init_config()
+run_app()
+EOF
+
+needle append /tmp/needle_smoke.py --match "import llm" --text "  # noqa: E402"
+needle replace-inside /tmp/needle_smoke.py --within "debug_enabled = True" --old "True" --new "False"
+needle replace-inside /tmp/needle_smoke.py --within "for hie_lite_enabled in (False, True):" --old "(False, True)" --new "(False,)"
+needle insert-after /tmp/needle_smoke.py --match "init_config()" --text "validate_config()"
+needle delete /tmp/needle_smoke.py --within "import llm  # noqa: E402" --text "  # noqa: E402"
+
+cat /tmp/needle_smoke.py
+```
+
+Expected output:
+
+```python
+import llm
+debug_enabled = False
+for hie_lite_enabled in (False,):
+    pass
+init_config()
+validate_config()
+run_app()
 ```
 
 ---

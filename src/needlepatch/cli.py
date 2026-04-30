@@ -10,6 +10,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Sequence
 
+from needlepatch import __version__
+
 
 EXIT_SUCCESS = 0
 EXIT_GENERIC_ERROR = 1
@@ -49,6 +51,7 @@ def build_parser() -> argparse.ArgumentParser:
         prog="needle",
         description="Safe shell commands for tiny exact text edits.",
     )
+    parser.add_argument("--version", action="version", version=__version__)
     subparsers = parser.add_subparsers(dest="command")
 
     view = subparsers.add_parser("view", help="inspect exact text")

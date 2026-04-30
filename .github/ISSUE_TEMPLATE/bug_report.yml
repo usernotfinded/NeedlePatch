@@ -1,0 +1,55 @@
+name: Bug report
+description: Report incorrect NeedlePatch behavior.
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug. Please include enough exact text for the issue to be reproduced.
+  - type: textarea
+    id: command
+    attributes:
+      label: Command
+      description: The exact NeedlePatch command you ran.
+      render: bash
+    validations:
+      required: true
+  - type: textarea
+    id: input
+    attributes:
+      label: Input file excerpt
+      description: The smallest relevant file excerpt before running the command.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What should have happened?
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: What actually happened, including output and exit code if available.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: NeedlePatch version or commit
+      description: Paste `needle --help` output version if available, or the commit SHA.
+    validations:
+      required: false
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Python version, OS, shell, and install method.
+      render: text
+    validations:
+      required: false

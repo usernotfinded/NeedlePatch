@@ -1,0 +1,67 @@
+name: Real-world micro-edit case
+description: Share a real edit where NeedlePatch helped or did not help.
+title: "[Case]: "
+labels:
+  - real-world-case
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template for real micro-edits. Cases where NeedlePatch is worse than a diff are useful too.
+  - type: textarea
+    id: original_code
+    attributes:
+      label: Original code
+      description: Paste the smallest relevant original code excerpt.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: desired_change
+    attributes:
+      label: Desired change
+      description: Describe the intended tiny edit.
+    validations:
+      required: true
+  - type: textarea
+    id: normal_diff
+    attributes:
+      label: Normal diff or apply_patch version
+      description: Paste the normal diff or patch you would otherwise use.
+      render: diff
+    validations:
+      required: true
+  - type: textarea
+    id: needle_command
+    attributes:
+      label: NeedlePatch command tried
+      description: Paste the exact command, or say if no command seemed appropriate.
+      render: bash
+    validations:
+      required: true
+  - type: textarea
+    id: result
+    attributes:
+      label: Result
+      description: What happened when you ran the command?
+    validations:
+      required: true
+  - type: dropdown
+    id: comparison
+    attributes:
+      label: Compared with a normal diff, the NeedlePatch command was
+      options:
+        - shorter
+        - clearer
+        - about the same
+        - worse
+        - not tried
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes
+      description: What made this case useful or not useful?
+    validations:
+      required: false

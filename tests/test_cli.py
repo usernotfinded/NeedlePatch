@@ -39,6 +39,14 @@ def test_view_uses_inclusive_one_based_line_range(tmp_path: Path) -> None:
     assert result.stderr == ""
 
 
+def test_version_flag_prints_package_version() -> None:
+    result = run_needle("--version")
+
+    assert result.returncode == 0
+    assert result.stdout == "0.1.0\n"
+    assert result.stderr == ""
+
+
 def test_replace_success(tmp_path: Path) -> None:
     target = tmp_path / "sample.txt"
     target.write_text("alpha beta gamma\n", encoding="utf-8")
