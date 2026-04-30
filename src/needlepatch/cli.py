@@ -74,6 +74,30 @@ def build_parser() -> argparse.ArgumentParser:
     replace_inside.add_argument("--dry-run", action="store_true", dest="dry_run")
     replace_inside.add_argument("--json", action="store_true", dest="json_output")
 
+    append = subparsers.add_parser("append", help="add suffix after a unique match")
+    append.add_argument("file")
+    append.add_argument("--match")
+    append.add_argument("--text")
+    append.add_argument("--dry-run", action="store_true", dest="dry_run")
+    append.add_argument("--json", action="store_true", dest="json_output")
+
+    insert_after = subparsers.add_parser(
+        "insert-after",
+        help="insert text after a unique match",
+    )
+    insert_after.add_argument("file")
+    insert_after.add_argument("--match")
+    insert_after.add_argument("--text")
+    insert_after.add_argument("--dry-run", action="store_true", dest="dry_run")
+    insert_after.add_argument("--json", action="store_true", dest="json_output")
+
+    delete = subparsers.add_parser("delete", help="delete unique exact text")
+    delete.add_argument("file")
+    delete.add_argument("--text")
+    delete.add_argument("--within")
+    delete.add_argument("--dry-run", action="store_true", dest="dry_run")
+    delete.add_argument("--json", action="store_true", dest="json_output")
+
     return parser
 
 
@@ -91,6 +115,12 @@ def main(argv: Sequence[str] | None = None) -> int:
             return handle_replace(args)
         if args.command == "replace-inside":
             return handle_replace_inside(args)
+        if args.command == "append":
+            return handle_append(args)
+        if args.command == "insert-after":
+            return handle_insert_after(args)
+        if args.command == "delete":
+            return handle_delete(args)
         raise ParserError(f"unknown command: {args.command}")
     except ParserError as exc:
         return handle_parse_error(raw_argv, str(exc))
@@ -231,6 +261,153 @@ def handle_replace_inside(args: argparse.Namespace) -> int:
     )
 
 
+def handle_append(args: argparse.Namespace) -> int:
+    validate_required_text(args.match, "--match")
+    validate_present(args.text, "--text")
+
+    path = Path(args.file)
+    content = read_file(path)
+    matches = content.count(args.match)
+    if matches == 0:
+        raise CommandError(
+            reason=REASON_NO_MATCH,
+            hint="No exact match found for --match.",
+            exit_code=EXIT_NO_MATCH,
+            matches=matches,
+        )
+    if matches > 1:
+        raise CommandError(
+            reason=REASON_MULTIPLE_MATCHES,
+            hint="Use a more specific exact match.",
+            exit_code=EXIT_MULTIPLE_MATCHES,
+            matches=matches,
+        )
+
+    updated = content.replace(args.match, args.match + args.text, 1)
+    return finish_edit(
+        args=args,
+        path=path,
+        original=content,
+        updated=updated,
+        matches=matches,
+    )
+
+
+def handle_insert_after(args: argparse.Namespace) -> int:
+    validate_required_text(args.match, "--match")
+    validate_required_text(args.text, "--text")
+
+    path = Path(args.file)
+    content = read_file(path)
+    matches = content.count(args.match)
+    if matches == 0:
+        raise CommandError(
+            reason=REASON_NO_MATCH,
+            hint="No exact match found for --match.",
+            exit_code=EXIT_NO_MATCH,
+            matches=matches,
+        )
+    if matches > 1:
+        raise CommandError(
+            reason=REASON_MULTIPLE_MATCHES,
+            hint="Use a more specific exact match.",
+            exit_code=EXIT_MULTIPLE_MATCHES,
+            matches=matches,
+        )
+
+    updated = insert_after_match(content, args.match, args.text)
+    return finish_edit(
+        args=args,
+        path=path,
+        original=content,
+        updated=updated,
+        matches=matches,
+    )
+
+
+def handle_delete(args: argparse.Namespace) -> int:
+    validate_required_text(args.text, "--text")
+
+    path = Path(args.file)
+    content = read_file(path)
+    if args.within is None:
+        matches = content.count(args.text)
+        if matches == 0:
+            raise CommandError(
+                reason=REASON_NO_MATCH,
+                hint="No exact match found for --text.",
+                exit_code=EXIT_NO_MATCH,
+                matches=matches,
+            )
+        if matches > 1:
+            raise CommandError(
+                reason=REASON_MULTIPLE_MATCHES,
+                hint="Use --within with a larger exact context.",
+                exit_code=EXIT_MULTIPLE_MATCHES,
+                matches=matches,
+            )
+
+        updated = content.replace(args.text, "", 1)
+        return finish_edit(
+            args=args,
+            path=path,
+            original=content,
+            updated=updated,
+            matches=matches,
+        )
+
+    validate_required_text(args.within, "--within")
+    context_matches = content.count(args.within)
+    if context_matches == 0:
+        raise CommandError(
+            reason=REASON_NO_MATCH,
+            hint="No exact match found for --within.",
+            exit_code=EXIT_NO_MATCH,
+            matches=context_matches,
+            context_matches=context_matches,
+        )
+    if context_matches > 1:
+        raise CommandError(
+            reason=REASON_MULTIPLE_MATCHES,
+            hint="Use a larger exact context for --within.",
+            exit_code=EXIT_MULTIPLE_MATCHES,
+            matches=context_matches,
+            context_matches=context_matches,
+        )
+
+    inner_matches = args.within.count(args.text)
+    if inner_matches == 0:
+        raise CommandError(
+            reason=REASON_NO_MATCH,
+            hint="No exact match found for --text inside --within.",
+            exit_code=EXIT_NO_MATCH,
+            matches=inner_matches,
+            context_matches=context_matches,
+            inner_matches=inner_matches,
+        )
+    if inner_matches > 1:
+        raise CommandError(
+            reason=REASON_MULTIPLE_MATCHES,
+            hint="Use a more specific --within context or --text.",
+            exit_code=EXIT_MULTIPLE_MATCHES,
+            matches=inner_matches,
+            context_matches=context_matches,
+            inner_matches=inner_matches,
+        )
+
+    updated_context = args.within.replace(args.text, "", 1)
+    updated = content.replace(args.within, updated_context, 1)
+    return finish_edit(
+        args=args,
+        path=path,
+        original=content,
+        updated=updated,
+        matches=inner_matches,
+        context_matches=context_matches,
+        inner_matches=inner_matches,
+    )
+
+
 def finish_edit(
     *,
     args: argparse.Namespace,
@@ -242,8 +419,8 @@ def finish_edit(
     inner_matches: int | None = None,
 ) -> int:
     diff = make_diff(path, original, updated)
-    changed = not args.dry_run
-    if not args.dry_run:
+    changed = not args.dry_run and updated != original
+    if changed:
         write_file(path, updated)
 
     if args.json_output:
@@ -266,6 +443,45 @@ def finish_edit(
         print(diff, end="" if diff.endswith("\n") else "\n")
 
     return EXIT_SUCCESS
+
+
+def insert_after_match(content: str, match: str, text: str) -> str:
+    start = content.find(match)
+    end = start + len(match)
+    prefix = content[:end]
+    suffix = content[end:]
+    line_separator, suffix_after_separator = split_leading_line_separator(suffix)
+
+    if line_separator:
+        insertion = text
+        if not insertion.startswith(("\n", "\r")):
+            insertion = line_separator + insertion
+        if suffix_after_separator and not insertion.endswith(("\n", "\r")):
+            insertion += line_separator
+        return prefix + insertion + suffix_after_separator
+
+    insertion = text
+    if ends_with_line_separator(prefix):
+        if suffix and not insertion.endswith(("\n", "\r")):
+            insertion += "\n"
+    elif not suffix and not insertion.startswith(("\n", "\r")):
+        insertion = "\n" + insertion
+
+    return prefix + insertion + suffix
+
+
+def split_leading_line_separator(text: str) -> tuple[str, str]:
+    if text.startswith("\r\n"):
+        return "\r\n", text[2:]
+    if text.startswith("\n"):
+        return "\n", text[1:]
+    if text.startswith("\r"):
+        return "\r", text[1:]
+    return "", text
+
+
+def ends_with_line_separator(text: str) -> bool:
+    return text.endswith(("\n", "\r"))
 
 
 def validate_present(value: str | None, flag: str) -> None:

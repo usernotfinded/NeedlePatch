@@ -101,13 +101,12 @@ The goal is not to replace `apply_patch` or normal diffs. The goal is to give AI
 needle view             -> inspect exact text
 needle replace          -> replace unique exact text
 needle replace-inside   -> replace tiny text inside a unique context
-needle append           -> add suffix after a match (planned)
-needle insert-after     -> add a new line/block after a match (planned)
-needle delete           -> remove exact text (planned)
+needle append           -> add suffix after a match
+needle insert-after     -> add a new line/block after a match
+needle delete           -> remove exact text
 ```
 
-Tiny Core MVP implements `view`, `replace`, and `replace-inside`.
-`append`, `insert-after`, and `delete` are planned commands and are not implemented yet.
+NeedlePatch implements `view`, `replace`, `replace-inside`, `append`, `insert-after`, and `delete`.
 
 Core safety rule:
 
@@ -128,9 +127,9 @@ If NeedlePatch cannot identify exactly one target, it refuses to edit.
 | `needle view`           | Shows a section of a file with line numbers              | Letting the AI inspect exact text before editing     |
 | `needle replace`        | Replaces one exact text block with another               | Simple exact substitutions                           |
 | `needle replace-inside` | Replaces a small text only inside a larger exact context | Boolean/number/string changes inside a specific line |
-| `needle append`         | Planned: adds text after a matched string                | Adding suffixes like `# noqa`, comments, flags       |
-| `needle insert-after`   | Planned: inserts a new line/block after a matched string | Adding one short line after a known anchor           |
-| `needle delete`         | Planned: deletes exact text                              | Removing one token, suffix, line, or small block     |
+| `needle append`         | Adds text after a matched string                         | Adding suffixes like `# noqa`, comments, flags       |
+| `needle insert-after`   | Inserts a new line/block after a matched string          | Adding one short line after a known anchor           |
+| `needle delete`         | Deletes exact text                                       | Removing one token, suffix, line, or small block     |
 
 ---
 
@@ -331,8 +330,6 @@ So `replace-inside` is safer when the target is small or common.
 
 # 4. `needle append`
 
-Planned command. Not implemented in the Tiny Core MVP.
-
 ## What it does
 
 `needle append` adds text immediately after a matched string.
@@ -398,8 +395,6 @@ find this text and add this suffix
 ---
 
 # 5. `needle insert-after`
-
-Planned command. Not implemented in the Tiny Core MVP.
 
 ## What it does
 
@@ -478,8 +473,6 @@ insert-after = new line/block after anchor
 ---
 
 # 6. `needle delete`
-
-Planned command. Not implemented in the Tiny Core MVP.
 
 ## What it does
 
@@ -592,7 +585,7 @@ Use `--dry-run` before risky edits.
 
 Prints machine-readable output for AI agents.
 
-In the Tiny Core MVP, `--json` is supported by `replace` and `replace-inside`.
+`--json` is supported by edit commands.
 
 Example success:
 
@@ -652,8 +645,6 @@ Best command for booleans, numbers, strings, tuple items, and arguments.
 
 ## If you want to add a suffix on the same line
 
-Planned command. Not implemented in the Tiny Core MVP.
-
 Use:
 
 ```bash
@@ -664,8 +655,6 @@ Best command for `# noqa`, `# type: ignore`, commas, semicolons, and inline comm
 
 ## If you want to add a new line after an existing line
 
-Planned command. Not implemented in the Tiny Core MVP.
-
 Use:
 
 ```bash
@@ -673,8 +662,6 @@ needle insert-after
 ```
 
 ## If you want to remove exact text
-
-Planned command. Not implemented in the Tiny Core MVP.
 
 Use:
 
@@ -688,9 +675,7 @@ Use `--within` if the text may appear more than once.
 
 # Practical examples
 
-## Add `# noqa: E402` (planned)
-
-`append` is planned and is not implemented in the Tiny Core MVP.
+## Add `# noqa: E402`
 
 ```bash
 needle append file.py \
@@ -760,8 +745,6 @@ for hie_lite_enabled in (False,):
 
 ## Insert a validation call
 
-`insert-after` is planned and is not implemented in the Tiny Core MVP.
-
 ```bash
 needle insert-after app.py \
   --match "init_config()" \
@@ -786,8 +769,6 @@ run_app()
 ---
 
 ## Delete a suffix
-
-`delete` is planned and is not implemented in the Tiny Core MVP.
 
 ```bash
 needle delete file.py \
@@ -831,8 +812,6 @@ Example output:
 ---
 
 ### Append text to a unique match
-
-`append` is planned and is not implemented in the Tiny Core MVP.
 
 ```bash
 needle append scripts/benchmark_local_baseline.py \
@@ -924,8 +903,6 @@ timeout = DEFAULT_TIMEOUT
 
 ### Insert a line after a unique match
 
-`insert-after` is planned and is not implemented in the Tiny Core MVP.
-
 ```bash
 needle insert-after app.py \
   --match "init_config()" \
@@ -950,8 +927,6 @@ run_app()
 ---
 
 ### Delete exact text
-
-`delete` is planned and is not implemented in the Tiny Core MVP.
 
 ```bash
 needle delete app.py \
@@ -982,7 +957,7 @@ needle delete app.py \
 
 ## Dry run
 
-The implemented edit commands `replace` and `replace-inside` support `--dry-run`.
+All edit commands support `--dry-run`.
 
 ```bash
 needle replace file.py \
@@ -1004,7 +979,7 @@ No file is changed.
 
 ## JSON output
 
-The implemented edit commands `replace` and `replace-inside` support `--json`.
+All edit commands support `--json`.
 
 ```bash
 needle replace file.py \

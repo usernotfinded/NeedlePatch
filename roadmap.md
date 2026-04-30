@@ -14,7 +14,7 @@ NeedlePatch should stay small, dumb, stateless, and predictable.
 
 ## Current status
 
-NeedlePatch is currently in **Tiny Core MVP** stage.
+NeedlePatch has completed the **Tiny Core MVP** and **Milestone 1** command set.
 
 The first working version implements only the minimum needed to prove the safety model:
 
@@ -46,17 +46,12 @@ python3 -m pip install -e '.[dev]'
 
 ### Commands
 
-The Tiny Core MVP implements:
+The current command set implements:
 
 ```bash
 needle view
 needle replace
 needle replace-inside
-```
-
-Deferred commands are documented but not yet implemented:
-
-```bash
 needle append
 needle insert-after
 needle delete
@@ -218,6 +213,9 @@ Current test coverage includes:
 * `replace` no-match failure;
 * `replace` multiple-match failure;
 * `replace-inside` success;
+* `append` success and failure cases;
+* `insert-after` line insertion and failure cases;
+* `delete` with and without context;
 * missing context;
 * duplicate context;
 * missing inner text;
@@ -228,11 +226,11 @@ Current test coverage includes:
 
 ---
 
-# Next milestones
+# Milestones
 
-## Milestone 1: Complete micro-edit command set
+## Milestone 1: Complete micro-edit command set (completed)
 
-Add the remaining planned commands:
+Completed commands:
 
 ```bash
 needle append
@@ -572,9 +570,9 @@ The next priority is not more architecture.
 The next priority is:
 
 ```text
-1. Add append, insert-after, and delete.
-2. Add real-world examples.
-3. Measure whether the tool is actually useful.
+1. Add real-world examples.
+2. Measure whether the tool is actually useful.
+3. Keep advanced features deferred until usage data supports them.
 ```
 
 Until those are done, NeedlePatch should avoid adding advanced features.
