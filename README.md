@@ -100,11 +100,14 @@ The goal is not to replace `apply_patch` or normal diffs. The goal is to give AI
 ```bash
 needle view             -> inspect exact text
 needle replace          -> replace unique exact text
-needle inside           -> replace tiny text inside a unique context
-needle append           -> add suffix after a match
-needle after            -> add a new line/block after a match
-needle delete           -> remove exact text
+needle replace-inside   -> replace tiny text inside a unique context
+needle append           -> add suffix after a match (planned)
+needle insert-after     -> add a new line/block after a match (planned)
+needle delete           -> remove exact text (planned)
 ```
+
+Tiny Core MVP implements `view`, `replace`, and `replace-inside`.
+`append`, `insert-after`, and `delete` are planned commands and are not implemented yet.
 
 Core safety rule:
 
@@ -124,10 +127,10 @@ If NeedlePatch cannot identify exactly one target, it refuses to edit.
 | ----------------------- | -------------------------------------------------------- | ---------------------------------------------------- |
 | `needle view`           | Shows a section of a file with line numbers              | Letting the AI inspect exact text before editing     |
 | `needle replace`        | Replaces one exact text block with another               | Simple exact substitutions                           |
-| `needle inside` | Replaces a small text only inside a larger exact context | Boolean/number/string changes inside a specific line |
-| `needle append`         | Adds text after a matched string                         | Adding suffixes like `# noqa`, comments, flags       |
-| `needle after`   | Inserts a new line/block after a matched string          | Adding one short line after a known anchor           |
-| `needle delete`         | Deletes exact text                                       | Removing one token, suffix, line, or small block     |
+| `needle replace-inside` | Replaces a small text only inside a larger exact context | Boolean/number/string changes inside a specific line |
+| `needle append`         | Planned: adds text after a matched string                | Adding suffixes like `# noqa`, comments, flags       |
+| `needle insert-after`   | Planned: inserts a new line/block after a matched string | Adding one short line after a known anchor           |
+| `needle delete`         | Planned: deletes exact text                              | Removing one token, suffix, line, or small block     |
 
 ---
 
@@ -227,18 +230,18 @@ This could appear in many places. In that case, prefer `replace-inside`.
 
 ---
 
-# 3. `needle inside`
+# 3. `needle replace-inside`
 
 ## What it does
 
-`needle inside` finds a larger exact context, then replaces a smaller exact text only inside that context.
+`needle replace-inside` finds a larger exact context, then replaces a smaller exact text only inside that context.
 
 This is the most important NeedlePatch command.
 
 ## Example
 
 ```bash
-needle inside config.py \
+needle replace-inside config.py \
   --within "debug_enabled = True" \
   --old "True" \
   --new "False"
@@ -277,7 +280,7 @@ inside this exact line/context, replace only this tiny part
 ## Another example
 
 ```bash
-needle inside scripts/benchmark_local_baseline.py \
+needle replace-inside scripts/benchmark_local_baseline.py \
   --within "for hie_lite_enabled in (False, True):" \
   --old "(False, True)" \
   --new "(False,)"
@@ -297,7 +300,7 @@ for hie_lite_enabled in (False,):
 
 ## Use when
 
-Use `inside` for:
+Use `replace-inside` for:
 
 * changing `True` to `False`;
 * changing a number;
@@ -309,7 +312,7 @@ Use `inside` for:
 
 ## Difference from `replace`
 
-`replace` changes this:
+`replace-inside` changes this:
 
 ```text
 old text -> new text
@@ -322,11 +325,13 @@ inside this larger context:
     old text -> new text
 ```
 
-So `replace` is safer when the target is small or common.
+So `replace-inside` is safer when the target is small or common.
 
 ---
 
 # 4. `needle append`
+
+Planned command. Not implemented in the Tiny Core MVP.
 
 ## What it does
 
@@ -392,18 +397,20 @@ find this text and add this suffix
 
 ---
 
-# 5. `needle after`
+# 5. `needle insert-after`
+
+Planned command. Not implemented in the Tiny Core MVP.
 
 ## What it does
 
-`needle after` inserts new text after a matched string.
+`needle insert-after` inserts new text after a matched string.
 
 Unlike `append`, it is normally used to add a new line or small block after an anchor.
 
 ## Example
 
 ```bash
-needle after app.py \
+needle insert-after app.py \
   --match "init_config()" \
   --text "validate_config()"
 ```
@@ -425,7 +432,7 @@ run_app()
 
 ## Use when
 
-Use `after` when you need to add:
+Use `insert-after` when you need to add:
 
 * one short line;
 * one import;
@@ -448,7 +455,7 @@ becomes:
 import llm  # noqa: E402
 ```
 
-`after` adds a new line/block after the matched text:
+`insert-after` adds a new line/block after the matched text:
 
 ```python
 init_config()
@@ -465,12 +472,14 @@ So:
 
 ```text
 append       = same-line suffix
-after        = new line/block after anchor
+insert-after = new line/block after anchor
 ```
 
 ---
 
 # 6. `needle delete`
+
+Planned command. Not implemented in the Tiny Core MVP.
 
 ## What it does
 
@@ -564,9 +573,9 @@ Shows what would change without modifying the file.
 Example:
 
 ```bash
-needle append file.py \
-  --match "from x import y" \
-  --text "  # noqa: E402" \
+needle replace file.py \
+  --old "from x import y" \
+  --new "from x import y  # noqa: E402" \
   --dry-run
 ```
 
@@ -583,16 +592,18 @@ Use `--dry-run` before risky edits.
 
 Prints machine-readable output for AI agents.
 
+In the Tiny Core MVP, `--json` is supported by `replace` and `replace-inside`.
+
 Example success:
 
 ```json
 {
   "status": "ok",
-  "command": "append",
+  "command": "replace",
   "file": "file.py",
   "matches": 1,
-  "changed_lines": 1,
-  "changed_bytes": 13
+  "changed": true,
+  "dry_run": false
 }
 ```
 
@@ -601,9 +612,11 @@ Example error:
 ```json
 {
   "status": "error",
+  "command": "replace",
+  "file": "file.py",
   "reason": "multiple_matches",
   "matches": 3,
-  "hint": "Use --within with a larger exact context."
+  "hint": "Use a more specific exact text or replace-inside with --within."
 }
 ```
 
@@ -639,6 +652,8 @@ Best command for booleans, numbers, strings, tuple items, and arguments.
 
 ## If you want to add a suffix on the same line
 
+Planned command. Not implemented in the Tiny Core MVP.
+
 Use:
 
 ```bash
@@ -649,6 +664,8 @@ Best command for `# noqa`, `# type: ignore`, commas, semicolons, and inline comm
 
 ## If you want to add a new line after an existing line
 
+Planned command. Not implemented in the Tiny Core MVP.
+
 Use:
 
 ```bash
@@ -656,6 +673,8 @@ needle insert-after
 ```
 
 ## If you want to remove exact text
+
+Planned command. Not implemented in the Tiny Core MVP.
 
 Use:
 
@@ -669,7 +688,9 @@ Use `--within` if the text may appear more than once.
 
 # Practical examples
 
-## Add `# noqa: E402`
+## Add `# noqa: E402` (planned)
+
+`append` is planned and is not implemented in the Tiny Core MVP.
 
 ```bash
 needle append file.py \
@@ -739,6 +760,8 @@ for hie_lite_enabled in (False,):
 
 ## Insert a validation call
 
+`insert-after` is planned and is not implemented in the Tiny Core MVP.
+
 ```bash
 needle insert-after app.py \
   --match "init_config()" \
@@ -763,6 +786,8 @@ run_app()
 ---
 
 ## Delete a suffix
+
+`delete` is planned and is not implemented in the Tiny Core MVP.
 
 ```bash
 needle delete file.py \
@@ -806,6 +831,8 @@ Example output:
 ---
 
 ### Append text to a unique match
+
+`append` is planned and is not implemented in the Tiny Core MVP.
 
 ```bash
 needle append scripts/benchmark_local_baseline.py \
@@ -897,6 +924,8 @@ timeout = DEFAULT_TIMEOUT
 
 ### Insert a line after a unique match
 
+`insert-after` is planned and is not implemented in the Tiny Core MVP.
+
 ```bash
 needle insert-after app.py \
   --match "init_config()" \
@@ -921,6 +950,8 @@ run_app()
 ---
 
 ### Delete exact text
+
+`delete` is planned and is not implemented in the Tiny Core MVP.
 
 ```bash
 needle delete app.py \
@@ -951,12 +982,12 @@ needle delete app.py \
 
 ## Dry run
 
-Every edit command supports `--dry-run`.
+The implemented edit commands `replace` and `replace-inside` support `--dry-run`.
 
 ```bash
-needle append file.py \
-  --match "from x import y" \
-  --text "  # noqa: E402" \
+needle replace file.py \
+  --old "from x import y" \
+  --new "from x import y  # noqa: E402" \
   --dry-run
 ```
 
@@ -973,12 +1004,12 @@ No file is changed.
 
 ## JSON output
 
-Every command supports `--json`.
+The implemented edit commands `replace` and `replace-inside` support `--json`.
 
 ```bash
-needle append file.py \
-  --match "from x import y" \
-  --text "  # noqa: E402" \
+needle replace file.py \
+  --old "from x import y" \
+  --new "from x import y  # noqa: E402" \
   --json
 ```
 
@@ -987,11 +1018,11 @@ Example success:
 ```json
 {
   "status": "ok",
-  "command": "append",
+  "command": "replace",
   "file": "file.py",
   "matches": 1,
-  "changed_lines": 1,
-  "changed_bytes": 13
+  "changed": true,
+  "dry_run": false
 }
 ```
 
@@ -1000,9 +1031,11 @@ Example error:
 ```json
 {
   "status": "error",
+  "command": "replace",
+  "file": "file.py",
   "reason": "multiple_matches",
   "matches": 3,
-  "hint": "Use --within with a larger exact context."
+  "hint": "Use a more specific exact text or replace-inside with --within."
 }
 ```
 
@@ -1145,24 +1178,16 @@ NeedlePatch is closer to a safer, AI-friendly `sed` than to a full coding assist
 
 ## Install
 
-TODO.
+For local MVP development:
 
-Possible future installation methods:
+```bash
+python3 -m pip install -e .[dev]
+```
+
+Future package installation may use:
 
 ```bash
 pip install needlepatch
-````
-
-or:
-
-```bash
-cargo install needlepatch
-```
-
-or:
-
-```bash
-brew install needlepatch
 ```
 
 ---
