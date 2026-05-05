@@ -2,16 +2,45 @@ from __future__ import annotations
 
 import json
 import os
+import stat
 import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
+from needlepatch.cli import DEFAULT_MAX_FILE_SIZE, sanitize_for_human
+
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"
+COMMANDS_WITH_FILE = {
+    "view",
+    "replace",
+    "replace-inside",
+    "append",
+    "insert-after",
+    "delete",
+}
 
 
-def run_needle(*args: str) -> subprocess.CompletedProcess[str]:
+def run_needle(
+    *args: str,
+    cwd: Path | None = None,
+    normalize_file_arg: bool = True,
+) -> subprocess.CompletedProcess[str]:
+    command_args = list(args)
+    run_cwd = ROOT if cwd is None else cwd
+    if (
+        normalize_file_arg
+        and len(command_args) > 1
+        and command_args[0] in COMMANDS_WITH_FILE
+    ):
+        file_path = Path(command_args[1])
+        if file_path.is_absolute():
+            run_cwd = file_path.parent
+            command_args[1] = file_path.name
+
     env = os.environ.copy()
     env["PYTHONPATH"] = (
         str(SRC)
@@ -19,8 +48,8 @@ def run_needle(*args: str) -> subprocess.CompletedProcess[str]:
         else f"{SRC}{os.pathsep}{env['PYTHONPATH']}"
     )
     return subprocess.run(
-        [sys.executable, "-m", "needlepatch.cli", *args],
-        cwd=ROOT,
+        [sys.executable, "-m", "needlepatch.cli", *command_args],
+        cwd=run_cwd,
         env=env,
         text=True,
         capture_output=True,
@@ -45,6 +74,228 @@ def test_version_flag_prints_package_version() -> None:
     assert result.returncode == 0
     assert result.stdout == "0.1.0\n"
     assert result.stderr == ""
+
+
+def test_normal_relative_file_inside_workspace_succeeds(tmp_path: Path) -> None:
+    target = tmp_path / "sample.txt"
+    target.write_text("alpha beta gamma\n", encoding="utf-8")
+
+    result = run_needle(
+        "replace",
+        "sample.txt",
+        "--old",
+        "beta",
+        "--new",
+        "BETA",
+        cwd=tmp_path,
+    )
+
+    assert result.returncode == 0
+    assert target.read_text(encoding="utf-8") == "alpha BETA gamma\n"
+
+
+def test_absolute_path_rejected_by_default_with_json(tmp_path: Path) -> None:
+    target = tmp_path / "sample.txt"
+    target.write_text("alpha beta gamma\n", encoding="utf-8")
+
+    result = run_needle(
+        "replace",
+        str(target),
+        "--old",
+        "beta",
+        "--new",
+        "BETA",
+        "--json",
+        cwd=tmp_path,
+        normalize_file_arg=False,
+    )
+    payload = json.loads(result.stdout)
+
+    assert result.returncode == 4
+    assert result.stderr == ""
+    assert target.read_text(encoding="utf-8") == "alpha beta gamma\n"
+    assert payload["status"] == "error"
+    assert payload["command"] == "replace"
+    assert payload["file"] == str(target)
+    assert payload["matches"] == 0
+    assert payload["reason"] == "path_rejected"
+    assert "Absolute paths are rejected" in payload["hint"]
+
+
+def test_parent_path_escaping_workspace_rejected_by_default(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    target = tmp_path / "outside.txt"
+    target.write_text("alpha beta gamma\n", encoding="utf-8")
+
+    result = run_needle(
+        "replace",
+        "../outside.txt",
+        "--old",
+        "beta",
+        "--new",
+        "BETA",
+        cwd=workspace,
+    )
+
+    assert result.returncode == 4
+    assert target.read_text(encoding="utf-8") == "alpha beta gamma\n"
+    assert "workspace root" in result.stderr
+
+
+def test_unsafe_allow_outside_root_allows_absolute_path(tmp_path: Path) -> None:
+    target = tmp_path / "sample.txt"
+    target.write_text("alpha beta gamma\n", encoding="utf-8")
+
+    result = run_needle(
+        "replace",
+        str(target),
+        "--old",
+        "beta",
+        "--new",
+        "BETA",
+        "--unsafe-allow-outside-root",
+        cwd=tmp_path,
+        normalize_file_arg=False,
+    )
+
+    assert result.returncode == 0
+    assert target.read_text(encoding="utf-8") == "alpha BETA gamma\n"
+
+
+def test_symlink_rejected_by_default(tmp_path: Path) -> None:
+    target = tmp_path / "real.txt"
+    link = tmp_path / "link.txt"
+    target.write_text("alpha beta gamma\n", encoding="utf-8")
+    try:
+        link.symlink_to(target.name)
+    except (NotImplementedError, OSError) as exc:
+        pytest.skip(f"symlinks are not supported: {exc}")
+
+    result = run_needle(
+        "replace",
+        "link.txt",
+        "--old",
+        "beta",
+        "--new",
+        "BETA",
+        cwd=tmp_path,
+    )
+
+    assert result.returncode == 4
+    assert target.read_text(encoding="utf-8") == "alpha beta gamma\n"
+    assert "Symlinks are rejected" in result.stderr
+
+
+def test_unsafe_follow_symlinks_allows_symlink_inside_workspace(tmp_path: Path) -> None:
+    target = tmp_path / "real.txt"
+    link = tmp_path / "link.txt"
+    target.write_text("alpha beta gamma\n", encoding="utf-8")
+    try:
+        link.symlink_to(target.name)
+    except (NotImplementedError, OSError) as exc:
+        pytest.skip(f"symlinks are not supported: {exc}")
+
+    result = run_needle(
+        "replace",
+        "link.txt",
+        "--old",
+        "beta",
+        "--new",
+        "BETA",
+        "--unsafe-follow-symlinks",
+        cwd=tmp_path,
+    )
+
+    assert result.returncode == 0
+    assert link.is_symlink()
+    assert target.read_text(encoding="utf-8") == "alpha BETA gamma\n"
+
+
+def test_file_below_size_limit_succeeds(tmp_path: Path) -> None:
+    target = tmp_path / "sample.txt"
+    target.write_text("alpha beta gamma\n", encoding="utf-8")
+
+    result = run_needle(
+        "replace",
+        str(target),
+        "--old",
+        "beta",
+        "--new",
+        "BETA",
+        "--max-file-size",
+        "64",
+    )
+
+    assert result.returncode == 0
+    assert target.read_text(encoding="utf-8") == "alpha BETA gamma\n"
+
+
+def test_large_file_rejected_by_default_with_json(tmp_path: Path) -> None:
+    target = tmp_path / "large.txt"
+    target.write_text(
+        "needle-old\n" + ("x" * DEFAULT_MAX_FILE_SIZE),
+        encoding="utf-8",
+    )
+
+    result = run_needle(
+        "replace",
+        str(target),
+        "--old",
+        "needle-old",
+        "--new",
+        "needle-new",
+        "--json",
+    )
+    payload = json.loads(result.stdout)
+
+    assert result.returncode == 4
+    assert result.stderr == ""
+    assert target.read_text(encoding="utf-8").startswith("needle-old\n")
+    assert payload["status"] == "error"
+    assert payload["reason"] == "file_too_large"
+    assert payload["file"] == target.name
+
+
+def test_unsafe_allow_large_file_allows_large_file(tmp_path: Path) -> None:
+    target = tmp_path / "large.txt"
+    target.write_text(
+        "needle-old\n" + ("x" * DEFAULT_MAX_FILE_SIZE),
+        encoding="utf-8",
+    )
+
+    result = run_needle(
+        "replace",
+        str(target),
+        "--old",
+        "needle-old",
+        "--new",
+        "needle-new",
+        "--unsafe-allow-large-file",
+    )
+
+    assert result.returncode == 0
+    assert target.read_text(encoding="utf-8").startswith("needle-new\n")
+
+
+def test_atomic_write_preserves_mode_and_cleans_temp_file(tmp_path: Path) -> None:
+    target = tmp_path / "sample.txt"
+    target.write_text("alpha beta gamma\n", encoding="utf-8")
+    os.chmod(target, 0o640)
+    expected_mode = stat.S_IMODE(target.stat().st_mode)
+    if expected_mode != 0o640:
+        pytest.skip("platform does not preserve requested chmod mode")
+
+    result = run_needle("replace", str(target), "--old", "beta", "--new", "BETA")
+
+    assert result.returncode == 0
+    assert target.read_text(encoding="utf-8") == "alpha BETA gamma\n"
+    assert stat.S_IMODE(target.stat().st_mode) == expected_mode
+    assert list(tmp_path.glob(".sample.txt.*.tmp")) == []
+
+
+def test_sanitize_for_human_escapes_ascii_control_characters() -> None:
+    assert sanitize_for_human("bad\n\t\x1b\x7fname") == r"bad\n\t\x1b\x7fname"
 
 
 def test_replace_success(tmp_path: Path) -> None:
@@ -184,7 +435,7 @@ def test_append_json_success(tmp_path: Path) -> None:
     assert payload == {
         "status": "ok",
         "command": "append",
-        "file": str(target),
+        "file": target.name,
         "matches": 1,
         "changed": True,
         "dry_run": False,
@@ -287,7 +538,7 @@ def test_insert_after_json_success(tmp_path: Path) -> None:
     assert payload == {
         "status": "ok",
         "command": "insert-after",
-        "file": str(target),
+        "file": target.name,
         "matches": 1,
         "changed": True,
         "dry_run": False,
@@ -435,7 +686,7 @@ def test_json_success_for_replace(tmp_path: Path) -> None:
     assert payload == {
         "status": "ok",
         "command": "replace",
-        "file": str(target),
+        "file": target.name,
         "matches": 1,
         "changed": True,
         "dry_run": False,
@@ -489,7 +740,7 @@ def test_json_failure_for_replace_no_match(tmp_path: Path) -> None:
     assert result.stderr == ""
     assert payload["status"] == "error"
     assert payload["command"] == "replace"
-    assert payload["file"] == str(target)
+    assert payload["file"] == target.name
     assert payload["matches"] == 0
     assert payload["reason"] == "no_match"
     assert payload["hint"]
@@ -702,7 +953,7 @@ def test_delete_json_success_with_within_includes_match_counts(tmp_path: Path) -
     assert payload == {
         "status": "ok",
         "command": "delete",
-        "file": str(target),
+        "file": target.name,
         "matches": 1,
         "changed": True,
         "dry_run": False,
@@ -732,7 +983,7 @@ def test_delete_json_error_for_missing_inner_text_includes_counts(
     assert result.stderr == ""
     assert payload["status"] == "error"
     assert payload["command"] == "delete"
-    assert payload["file"] == str(target)
+    assert payload["file"] == target.name
     assert payload["matches"] == 0
     assert payload["context_matches"] == 1
     assert payload["inner_matches"] == 0

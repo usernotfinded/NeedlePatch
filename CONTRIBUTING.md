@@ -7,7 +7,10 @@ Thanks for helping test NeedlePatch. Please keep changes small and grounded in r
 Run tests with:
 
 ```bash
-python3 -m pytest
+python3 -m pip install -r requirements-dev.txt
+python3 -m pytest -q
+ruff check .
+python3 -m pip_audit -r constraints-dev.txt
 ```
 
 ## Guidelines

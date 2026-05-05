@@ -1,0 +1,4 @@
+-c constraints-dev.txt
+-e .[dev]
+setuptools
+wheel

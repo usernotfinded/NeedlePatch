@@ -1095,7 +1095,10 @@ Example error:
 Copy and paste this into a shell after installing NeedlePatch:
 
 ```bash
-cat > /tmp/needle_smoke.py <<'EOF'
+tmpdir="$(mktemp -d)"
+cd "$tmpdir"
+
+cat > needle_smoke.py <<'EOF'
 import llm
 debug_enabled = True
 for hie_lite_enabled in (False, True):
@@ -1104,13 +1107,13 @@ init_config()
 run_app()
 EOF
 
-needle append /tmp/needle_smoke.py --match "import llm" --text "  # noqa: E402"
-needle replace-inside /tmp/needle_smoke.py --within "debug_enabled = True" --old "True" --new "False"
-needle replace-inside /tmp/needle_smoke.py --within "for hie_lite_enabled in (False, True):" --old "(False, True)" --new "(False,)"
-needle insert-after /tmp/needle_smoke.py --match "init_config()" --text "validate_config()"
-needle delete /tmp/needle_smoke.py --within "import llm  # noqa: E402" --text "  # noqa: E402"
+needle append needle_smoke.py --match "import llm" --text "  # noqa: E402"
+needle replace-inside needle_smoke.py --within "debug_enabled = True" --old "True" --new "False"
+needle replace-inside needle_smoke.py --within "for hie_lite_enabled in (False, True):" --old "(False, True)" --new "(False,)"
+needle insert-after needle_smoke.py --match "init_config()" --text "validate_config()"
+needle delete needle_smoke.py --within "import llm  # noqa: E402" --text "  # noqa: E402"
 
-cat /tmp/needle_smoke.py
+cat needle_smoke.py
 ```
 
 Expected output:
@@ -1148,6 +1151,29 @@ NeedlePatch does not use regex by default.
 The MVP is exact string matching only.
 
 This makes commands easier for AI agents to generate safely.
+
+### Workspace boundary
+
+By default, file paths are resolved inside the current working directory.
+
+NeedlePatch rejects absolute paths, paths that escape the current workspace root,
+and symlinks unless an explicit unsafe override is provided:
+
+```bash
+needle replace file.py --old "True" --new "False"
+needle replace /tmp/file.py --old "True" --new "False" --unsafe-allow-outside-root
+needle replace link.py --old "True" --new "False" --unsafe-follow-symlinks
+```
+
+These defaults harden agent use, but they are not a sandbox.
+
+### File size limit
+
+NeedlePatch reads target files into memory. By default it refuses files larger
+than 5 MiB.
+
+Use `--max-file-size BYTES` for a larger explicit limit or
+`--unsafe-allow-large-file` when you intentionally want to bypass the limit.
 
 ### Context support
 
@@ -1267,8 +1293,11 @@ NeedlePatch is closer to a safer, AI-friendly `sed` than to a full coding assist
 For local MVP development:
 
 ```bash
-python3 -m pip install -e .[dev]
+python3 -m pip install -r requirements-dev.txt
 ```
+
+`requirements-dev.txt` installs only development and CI tooling. Runtime
+dependencies remain empty.
 
 Future package installation may use:
 

@@ -1,0 +1,11 @@
+# Development and CI tooling constraints.
+#
+# Exact pins below were verified in the local environment during the 2026-05-05
+# hardening pass, except wheel, which is pinned to the fixed version reported by
+# pip-audit for CVE-2026-24049. pip-audit was not installed locally at the start
+# of the pass, so it stays bounded rather than pinned to fake precision.
+pip-audit>=2.7,<3
+pytest==9.0.3
+ruff==0.15.11
+setuptools==80.9.0
+wheel==0.46.2
