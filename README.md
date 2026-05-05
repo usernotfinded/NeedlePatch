@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/needlepatch-banner.png" alt="NeedlePatch banner" width="100%">
+  <img src="assets/NeedlePatchBanner.png" alt="NeedlePatch banner" width="100%">
 </p>
 
 **Safe shell commands for tiny text edits by AI coding agents.**
